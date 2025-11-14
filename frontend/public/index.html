@@ -3,26 +3,27 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Видеочат по городам России</title>
+    <title>Видеочат Россия</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial; background: #1a202c; color: white; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; background: #2d3748; padding: 30px; border-radius: 15px; }
-        h1 { text-align: center; margin-bottom: 30px; color: #4299e1; }
-        .cities { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0; }
-        .btn { background: #4299e1; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        .container { max-width: 1000px; margin: 0 auto; background: #2d3748; padding: 20px; border-radius: 10px; }
+        h1 { text-align: center; margin-bottom: 20px; color: #4299e1; }
+        .status { padding: 10px; background: #4a5568; border-radius: 5px; margin: 10px 0; text-align: center; }
+        .cities { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+        .btn { background: #4299e1; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; }
         .btn:hover { background: #3182ce; }
         .btn-success { background: #48bb78; }
         .btn-danger { background: #f56565; }
         .btn-warning { background: #ed8936; }
-        .video-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 30px 0; }
-        video { width: 100%; background: #000; border: 3px solid #4a5568; border-radius: 10px; }
-        .status { padding: 15px; background: #4a5568; border-radius: 8px; margin: 15px 0; text-align: center; font-weight: bold; }
-        .controls { display: flex; gap: 10px; justify-content: center; margin: 20px 0; flex-wrap: wrap; }
+        .btn-debug { background: #9f7aea; }
+        .video-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+        video { width: 100%; background: #000; border: 2px solid #4a5568; border-radius: 5px; }
+        .controls { display: flex; gap: 10px; justify-content: center; margin: 15px 0; flex-wrap: wrap; }
         @media (max-width: 768px) {
             .video-container { grid-template-columns: 1fr; }
-            .cities { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+            .cities { justify-content: center; }
         }
     </style>
 </head>
@@ -32,7 +33,7 @@
         <div id="status" class="status">Подключение...</div>
         
         <div id="citySelection">
-            <h2>Выберите ваш город:</h2>
+            <h2>Выберите город:</h2>
             <div class="cities" id="citiesList"></div>
         </div>
         
@@ -42,6 +43,7 @@
                 <button class="btn btn-success" onclick="findPartner()">🔍 Найти собеседника</button>
                 <button class="btn btn-danger" onclick="endCall()" style="display: none;">📞 Завершить</button>
                 <button class="btn btn-warning" onclick="leaveCity()">🚪 Сменить город</button>
+                <button class="btn btn-debug" onclick="debugConnection()">🐛 Диагностика</button>
             </div>
             
             <div class="video-container">
@@ -63,7 +65,7 @@
         
         // Переменные
         let socket, currentCity, partnerId, peerConnection, localStream;
-        const cities = ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань', 'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону'];
+        const cities = ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань', 'Нижний Новгород'];
 
         // Инициализация
         function init() {
@@ -92,14 +94,14 @@
 
             socket.on('partner-found', (id) => {
                 partnerId = id;
-                updateStatus('✅ Собеседник найден! Соединяем...');
+                updateStatus('✅ Собеседник найден!');
                 startWebRTC(id);
                 document.querySelector('.btn-success').style.display = 'none';
                 document.querySelector('.btn-danger').style.display = 'inline-block';
             });
 
             socket.on('waiting-partner', () => {
-                updateStatus('🔍 Ищем собеседника в вашем городе...');
+                updateStatus('🔍 Ищем собеседника...');
             });
 
             // WebRTC события
@@ -115,7 +117,7 @@
             
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 1280, height: 720 },
+                    video: true, 
                     audio: true 
                 });
                 document.getElementById('localVideo').srcObject = localStream;
@@ -139,17 +141,13 @@
         function startWebRTC(targetId) {
             if (!localStream) return;
 
-            // НАДЕЖНЫЕ TURN СЕРВЕРЫ ДЛЯ ИНТЕРНЕТА
+            console.log('Starting WebRTC with partner:', targetId);
+
             peerConnection = new RTCPeerConnection({
                 iceServers: [
-                    // Google STUN
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
                     { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' },
-                    
-                    // Публичные TURN серверы
                     {
                         urls: 'turn:openrelay.metered.ca:80',
                         username: 'openrelayproject',
@@ -159,24 +157,24 @@
                         urls: 'turn:openrelay.metered.ca:443',
                         username: 'openrelayproject',
                         credential: 'openrelayproject'
-                    },
-                    {
-                        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
                     }
-                ],
-                iceTransportPolicy: 'all'
+                ]
             });
+
+            // Диагностика
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('ICE state:', peerConnection.iceConnectionState);
+                updateStatus(`Состояние: ${peerConnection.iceConnectionState}`);
+            };
 
             // Добавляем локальные треки
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
             });
 
-            // Обработка удаленного видео
+            // Получаем удаленное видео
             peerConnection.ontrack = (event) => {
-                console.log('✅ Получен удаленный поток');
+                console.log('✅ Received remote track!');
                 const remoteVideo = document.getElementById('remoteVideo');
                 if (event.streams && event.streams[0]) {
                     remoteVideo.srcObject = event.streams[0];
@@ -194,32 +192,24 @@
                 }
             };
 
-            // Статус соединения
-            peerConnection.onconnectionstatechange = () => {
-                console.log('Connection state:', peerConnection.connectionState);
-            };
-
             // Создаем предложение
-            peerConnection.createOffer({
-                offerToReceiveAudio: true,
-                offerToReceiveVideo: true
-            })
-            .then(offer => peerConnection.setLocalDescription(offer))
-            .then(() => {
-                socket.emit('webrtc-offer', {
-                    offer: peerConnection.localDescription,
-                    target: targetId
+            peerConnection.createOffer()
+                .then(offer => peerConnection.setLocalDescription(offer))
+                .then(() => {
+                    socket.emit('webrtc-offer', {
+                        offer: peerConnection.localDescription,
+                        target: targetId
+                    });
+                    updateStatus('🔄 Устанавливаем соединение...');
+                })
+                .catch(error => {
+                    console.error('Offer error:', error);
+                    updateStatus('❌ Ошибка соединения');
                 });
-            })
-            .catch(error => {
-                console.error('Offer error:', error);
-                updateStatus('❌ Ошибка соединения');
-            });
         }
 
         async function handleOffer(data) {
             if (!peerConnection) return;
-            
             try {
                 await peerConnection.setRemoteDescription(data.offer);
                 const answer = await peerConnection.createAnswer();
@@ -266,7 +256,7 @@
             
             document.querySelector('.btn-success').style.display = 'inline-block';
             document.querySelector('.btn-danger').style.display = 'none';
-            updateStatus('Готов к поиску собеседника');
+            updateStatus('Готов к поиску');
         }
 
         function leaveCity() {
@@ -283,6 +273,21 @@
 
         function updateStatus(message) {
             document.getElementById('status').textContent = message;
+        }
+
+        function debugConnection() {
+            console.log('=== ДИАГНОСТИКА ===');
+            console.log('Partner ID:', partnerId);
+            console.log('Peer Connection:', peerConnection);
+            console.log('Local Stream:', localStream);
+            console.log('Remote Video srcObject:', document.getElementById('remoteVideo').srcObject);
+            
+            if (peerConnection) {
+                console.log('ICE State:', peerConnection.iceConnectionState);
+                console.log('Signaling State:', peerConnection.signalingState);
+            }
+            
+            alert('Диагностика завершена. Смотри консоль (F12)');
         }
 
         // Запуск
